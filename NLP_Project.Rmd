@@ -1,0 +1,88 @@
+---
+title: "NLP_Project"
+author: "Jack, Yeonji, Alexi, Minxin"
+date: "4/25/2018"
+output: html_document
+---
+
+## Project Overview
+
+
+## Text Tidying
+
+```{r}
+#install tidytext package for tidying
+install.packages("tidytext")
+#install readxl package for loading an excel file
+install.packages("readxl")
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(tidytext)
+library(readxl)
+library(ggplot2)
+```
+
+```{r}
+#load the first sheet of the excel file, which contains the data of all questions and students
+dentalDataAll <- read_excel("DentalDataKIQ2017D4P(noid).xlsx", sheet = 1)
+dentalDataAll
+```
+
+```{r}
+#separate the text in kiaAns2 column by word, each row has one token (create a table with one-token-per-row)
+dentalDataTokens <- unnest_tokens(dentalDataAll,word,kiqAns2)
+dentalDataTokens
+```
+
+```{r}
+#remove stop words, such as "and", "the", "of", "to", etc.
+
+data(stop_words)
+
+tidyDentalData <- dentalDataTokens %>%
+  anti_join(stop_words)
+
+tidyDentalData
+```
+
+```{r}
+#word count
+#filter out the words that appear less than 1500 times
+#sorted by amount
+tidyDentalData %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 1500) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip()
+```
+
+```{r}
+#count the positive and negative words
+bing_word_counts <- tidyDentalData %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+bing_word_counts
+```
+
+```{r}
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  top_n(10) %>%
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(y = "Contribution to sentiment",
+       x = NULL) +
+  coord_flip()
+```
+
