@@ -12,59 +12,114 @@ output: html_document
 
 ```{r}
 #install tidytext package for tidying
-install.packages("tidytext")
+#install.packages("tidytext")
 #install readxl package for loading an excel file
-install.packages("readxl")
+#install.packages("readxl")
+#install.packages("rowr")
+install.packages("plyr")
 ```
 
 ```{r}
 library(dplyr)
 library(tidyr)
+library(plyr)
+library(rowr)
 library(tidytext)
+library(stringr)
 library(readxl)
 library(ggplot2)
 ```
 
 ```{r}
 #load the first sheet of the excel file, which contains the data of all questions and students
-dentalDataAll <- read_excel("DentalDataKIQ2017D4P(noid).xlsx", sheet = 1)
-dentalDataAll
+dentalDataAll <- read_excel("DentalDataKIQ2017D1&D4P(anonymized).xlsx", sheet = 1)
+```
+
+
+```{r}
+dentalDataD1 <- filter(dentalDataAll, RefYear == "D1" & (kiqQs == "cp3" | kiqQs == "cp22"))
+colnames(dentalDataD1)[colnames(dentalDataD1)=="RandomID"] <- "RandomIDY1"
+dentalDataD4 <- filter(dentalDataAll, RefYear == "D4" & (kiqQs == "cp3" | kiqQs == "cp22"))
+colnames(dentalDataD4)[colnames(dentalDataD4)=="RandomID"] <- "RandomIDY4"
+dentalDataD1D4 <- cbind.fill(dentalDataD1, dentalDataD4, c(), fill = 0)
+colnames(dentalDataD1D4)[colnames(dentalDataD1D4)=="x[[i]]"] <- "flag"
+
 ```
 
 ```{r}
-#separate the text in kiaAns2 column by word, each row has one token (create a table with one-token-per-row)
-dentalDataTokens <- unnest_tokens(dentalDataAll,word,kiqAns2)
-dentalDataTokens
+for(i in c(1:734)) {
+  for(j in c(1:734)) {
+  if(dentalDataD1D4$RandomIDY4[i] == dentalDataD1D4$RandomIDY1[j]) {
+  dentalDataD1D4$flag[i] <- 1
+  }
+  }
+}
+
 ```
 
 ```{r}
-#remove stop words, such as "and", "the", "of", "to", etc.
+dentalDataD4 <- cbind(dentalDataD4,flag=dentalDataD1D4$flag)
+
+dentalDataD4 <- filter(dentalDataD4, flag != 0)
+```
+
+```{r}
+
+test <- cbind(dentalDataD1$RandomIDY1,dentalDataD4$RandomIDY4)
+
+names(dentalDataD4) <- c("TypeY4", "GradYearY4", "RefYearY4","PracGroupY4","RandomIDY4", "kiqQsY4","kiqAns1Y4","kiqAns2Y4","flag")
+
+#remove rows with missing value
+CompareD1D4 <- cbind(dentalDataD1,select(dentalDataD4, -flag))
+CompareD1D4 <- filter(CompareD1D4, !is.na(kiqAns2))
+CompareD1D4 <- filter(CompareD1D4, !is.na(kiqAns2Y4))
+
+#remove rows with same values for year 1 and year 4
+CompareD1D4 <- CompareD1D4[!duplicated(CompareD1D4[,c('kiqAns2', 'kiqAns2Y4')]),]
+
+Y1 <- select(CompareD1D4,Type:kiqAns2)
+Y4 <- select(CompareD1D4,TypeY4:kiqAns2Y4)
+
+names(Y4) <- c("Type", "GradYear", "RefYear","PracGroup","RandomID", "kiqQs","kiqAns1","kiqAns2")
+colnames(Y1)[colnames(Y1)=="RandomIDY1"] <- "RandomID"
+
+Y1Y4 <- rbind(Y1,Y4)
+
+```
+
+```{r}
+Y1Y4Tokens <- unnest_tokens(Y1Y4,word,kiqAns2)
 
 data(stop_words)
 
-tidyDentalData <- dentalDataTokens %>%
+Y1Y4Clean <- Y1Y4Tokens %>%
   anti_join(stop_words)
 
-tidyDentalData
+
 ```
+
+
+```{r}
+Y1Q1 <- filter(Y1Y4Clean, RefYear == "D1" & kiqQs == "cp3")
+Y1Q2 <- filter(Y1Y4Clean, RefYear == "D1" & kiqQs == "cp22")
+Y4Q1 <- filter(Y1Y4Clean, RefYear == "D4" & kiqQs == "cp3")
+Y4Q2 <- filter(Y1Y4Clean, RefYear == "D4" & kiqQs == "cp22")
+```
+
+
+
 
 ```{r}
 #word count
 #filter out the words that appear less than 1500 times
 #sorted by amount
-tidyDentalData %>%
-  count(word, sort = TRUE) %>%
-  filter(n > 1500) %>%
-  mutate(word = reorder(word, n)) %>%
-  ggplot(aes(word, n)) +
-  geom_col() +
-  xlab(NULL) +
-  coord_flip()
+Y1Y4Clean %>%
+  count(word, sort = TRUE) 
 ```
 
 ```{r}
 #count the positive and negative words
-bing_word_counts <- tidyDentalData %>%
+bing_word_counts <- Y1Y4Clean %>%
   inner_join(get_sentiments("bing")) %>%
   count(word, sentiment, sort = TRUE) %>%
   ungroup()
