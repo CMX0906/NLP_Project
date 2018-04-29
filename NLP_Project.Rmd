@@ -16,19 +16,25 @@ output: html_document
 #install readxl package for loading an excel file
 #install.packages("readxl")
 #install.packages("rowr")
-install.packages("plyr")
+#install.packages("plyr")
+install.packages("igraph")
+install.packages("ggraph")
 ```
 
 ```{r}
-library(dplyr)
-library(tidyr)
-library(plyr)
-library(rowr)
 library(tidytext)
 library(stringr)
 library(readxl)
 library(ggplot2)
+library(tidyr)
+library(plyr)
+library(rowr)
+library(dplyr)
+library(igraph)
+library(ggraph)
 ```
+
+
 
 ```{r}
 #load the first sheet of the excel file, which contains the data of all questions and students
@@ -37,6 +43,10 @@ dentalDataAll <- read_excel("DentalDataKIQ2017D1&D4P(anonymized).xlsx", sheet = 
 
 
 ```{r}
+#filter out questions other than Q3 and Q22 for both years
+#I found out that there are missing students in Year 1
+#I combined data frames for both years by column and added a flag column for compairson
+
 dentalDataD1 <- filter(dentalDataAll, RefYear == "D1" & (kiqQs == "cp3" | kiqQs == "cp22"))
 colnames(dentalDataD1)[colnames(dentalDataD1)=="RandomID"] <- "RandomIDY1"
 dentalDataD4 <- filter(dentalDataAll, RefYear == "D4" & (kiqQs == "cp3" | kiqQs == "cp22"))
@@ -47,6 +57,8 @@ colnames(dentalDataD1D4)[colnames(dentalDataD1D4)=="x[[i]]"] <- "flag"
 ```
 
 ```{r}
+#use for loop and if condition to find out the students that are not presented in Year 1
+
 for(i in c(1:734)) {
   for(j in c(1:734)) {
   if(dentalDataD1D4$RandomIDY4[i] == dentalDataD1D4$RandomIDY1[j]) {
@@ -58,13 +70,16 @@ for(i in c(1:734)) {
 ```
 
 ```{r}
+#filter out the students that are not presented in Year 1
+#now both years have the same observations 
+
 dentalDataD4 <- cbind(dentalDataD4,flag=dentalDataD1D4$flag)
 
 dentalDataD4 <- filter(dentalDataD4, flag != 0)
 ```
 
 ```{r}
-
+#test to see if the students match betwen both years
 test <- cbind(dentalDataD1$RandomIDY1,dentalDataD4$RandomIDY4)
 
 names(dentalDataD4) <- c("TypeY4", "GradYearY4", "RefYearY4","PracGroupY4","RandomIDY4", "kiqQsY4","kiqAns1Y4","kiqAns2Y4","flag")
@@ -77,17 +92,22 @@ CompareD1D4 <- filter(CompareD1D4, !is.na(kiqAns2Y4))
 #remove rows with same values for year 1 and year 4
 CompareD1D4 <- CompareD1D4[!duplicated(CompareD1D4[,c('kiqAns2', 'kiqAns2Y4')]),]
 
-Y1 <- select(CompareD1D4,Type:kiqAns2)
-Y4 <- select(CompareD1D4,TypeY4:kiqAns2Y4)
+D1 <- select(CompareD1D4,Type:kiqAns2)
+D4 <- select(CompareD1D4,TypeY4:kiqAns2Y4)
 
-names(Y4) <- c("Type", "GradYear", "RefYear","PracGroup","RandomID", "kiqQs","kiqAns1","kiqAns2")
-colnames(Y1)[colnames(Y1)=="RandomIDY1"] <- "RandomID"
+names(D4) <- c("Type", "GradYear", "RefYear","PracGroup","RandomID", "kiqQs","kiqAns1","kiqAns2")
+colnames(D1)[colnames(D1)=="RandomIDY1"] <- "RandomID"
 
-Y1Y4 <- rbind(Y1,Y4)
+#it contains the students only who answered both years and with different answers
+#also, it contains only the students who are presented in both years
+Y1Y4 <- rbind(D1,D4)
 
 ```
 
 ```{r}
+#text tidying, follow the one-token-per-row rule
+#remove stop words
+
 Y1Y4Tokens <- unnest_tokens(Y1Y4,word,kiqAns2)
 
 data(stop_words)
@@ -100,8 +120,12 @@ Y1Y4Clean <- Y1Y4Tokens %>%
 
 
 ```{r}
+#separate the overall data frame (Y1Y4Clean) for the needs of comparing different questions between different years
+
+Y1 <- filter(Y1Y4Clean, RefYear == "D1")
 Y1Q1 <- filter(Y1Y4Clean, RefYear == "D1" & kiqQs == "cp3")
 Y1Q2 <- filter(Y1Y4Clean, RefYear == "D1" & kiqQs == "cp22")
+Y4 <- filter(Y1Y4Clean, RefYear == "D4")
 Y4Q1 <- filter(Y1Y4Clean, RefYear == "D4" & kiqQs == "cp3")
 Y4Q2 <- filter(Y1Y4Clean, RefYear == "D4" & kiqQs == "cp22")
 ```
@@ -110,15 +134,24 @@ Y4Q2 <- filter(Y1Y4Clean, RefYear == "D4" & kiqQs == "cp22")
 
 
 ```{r}
-#word count
-#filter out the words that appear less than 1500 times
+#general word count including both years and both questions
+#filter out the words that appear less than 100 times
 #sorted by amount
+count
 Y1Y4Clean %>%
-  count(word, sort = TRUE) 
+  count(word, sort = TRUE) %>%
+  filter(n > 100) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip()
+
+
 ```
 
 ```{r}
-#count the positive and negative words
+#overall positive and negative words
 bing_word_counts <- Y1Y4Clean %>%
   inner_join(get_sentiments("bing")) %>%
   count(word, sentiment, sort = TRUE) %>%
@@ -128,6 +161,7 @@ bing_word_counts
 ```
 
 ```{r}
+#overall positive and negative words visualization
 bing_word_counts %>%
   group_by(sentiment) %>%
   top_n(10) %>%
@@ -139,5 +173,73 @@ bing_word_counts %>%
   labs(y = "Contribution to sentiment",
        x = NULL) +
   coord_flip()
+```
+
+```{r}
+#overall bigram count
+Y1Y4Tokens_bigrams <- Y1Y4Tokens %>%
+  unnest_tokens(bigram, word, token = "ngrams", n = 2)
+
+Y1Y4Tokens_bigrams %>%
+  count(bigram, sort = TRUE)
+
+
+```
+
+```{r}
+#overall bigram count that filtered out stop words
+bigrams_separated <- Y1Y4Tokens_bigrams %>%
+  separate(bigram, c("word1", "word2"), sep = " ")
+
+bigrams_filtered <- bigrams_separated %>%
+  filter(!word1 %in% stop_words$word) %>%
+  filter(!word2 %in% stop_words$word)
+
+# new bigram counts:
+bigram_counts <- bigrams_filtered %>% 
+  count(word1, word2, sort = TRUE)
+
+bigram_counts <- filter(bigram_counts, !is.na(word1))
+
+bigram_counts
+```
+
+```{r}
+bigrams_united <- bigrams_filtered %>%
+  unite(bigram, word1, word2, sep = " ")
+
+bigrams_united
+```
+
+```{r}
+bigram_graph <- bigram_counts %>%
+  filter(n > 10) %>%
+  graph_from_data_frame()
+
+bigram_graph
+```
+
+```{r}
+#overall bigram visualization
+set.seed(2017)
+
+ggraph(bigram_graph, layout = "fr") +
+  geom_edge_link() +
+  geom_node_point() +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1)
+```
+
+```{r}
+#overall bigram visualization with directions
+set.seed(2016)
+
+a <- grid::arrow(type = "closed", length = unit(.15, "inches"))
+
+ggraph(bigram_graph, layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n), show.legend = FALSE,
+                 arrow = a, end_cap = circle(.07, 'inches')) +
+  geom_node_point(color = "lightblue", size = 5) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+  theme_void()
 ```
 
