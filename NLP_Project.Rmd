@@ -12,11 +12,11 @@ output: html_document
 
 ```{r}
 #install tidytext package for tidying
-#install.packages("tidytext")
+install.packages("tidytext")
 #install readxl package for loading an excel file
-#install.packages("readxl")
-#install.packages("rowr")
-#install.packages("plyr")
+install.packages("readxl")
+install.packages("rowr")
+install.packages("plyr")
 install.packages("igraph")
 install.packages("ggraph")
 ```
@@ -58,6 +58,8 @@ colnames(dentalDataD1D4)[colnames(dentalDataD1D4)=="x[[i]]"] <- "flag"
 
 ```{r}
 #use for loop and if condition to find out the students that are not presented in Year 1
+dentalDataD1D4$RandomIDY1 <- as.character(dentalDataD1D4$RandomIDY1)
+dentalDataD1D4$RandomIDY4 <- as.character(dentalDataD1D4$RandomIDY4)
 
 for(i in c(1:734)) {
   for(j in c(1:734)) {
@@ -242,4 +244,393 @@ ggraph(bigram_graph, layout = "fr") +
   geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
   theme_void()
 ```
+
+```{r}
+#prepare for visualization
+
+install.packages("ggrepel") #`geom_label_repel`
+install.packages("gridExtra") #`grid.arrange()` for multi-graphs
+install.packages("knitr") #Create nicely formatted output tables
+install.packages("kableExtra") #Create nicely formatted output tables
+install.packages("formattable") #For the color_tile function
+install.packages("circlize") #Visualizations - chord diagram
+install.packages("memery") #Memes - images with plots
+install.packages("magick") #Memes - images with plots (image_read)
+install.packages("yarrr")  #Pirate plot
+
+```
+
+```{r}
+
+#load the packages for visualization
+
+library("ggrepel") #`geom_label_repel`
+library("gridExtra") #`grid.arrange()` for multi-graphs
+library("knitr") #Create nicely formatted output tables
+library("kableExtra") #Create nicely formatted output tables
+library("formattable") #For the color_tile function
+library("circlize") #Visualizations - chord diagram
+library("memery") #Memes - images with plots
+library("magick") #Memes - images with plots (image_read)
+library("yarrr")  #Pirate plot
+
+```
+
+
+```{r}
+
+#Define some colors to use throughout
+
+my_colors <- c("#E69F00", "#56B4E9", "#009E73", "#CC79A7", "#D55E00", "#D65E00")
+
+#Customize ggplot2's default theme settings
+
+theme_Y1Y4Clean <- function(aticks = element_blank(),
+                         pgminor = element_blank(),
+                         lt = element_blank(),
+                         lp = "none")
+{
+  theme(plot.title = element_text(hjust = 0.5), #Center the title
+        axis.ticks = aticks, #Set axis ticks to on or off
+        panel.grid.minor = pgminor, #Turn the minor grid lines on or off
+        legend.title = lt, #Turn the legend title on or off
+        legend.position = lp) #Turn the legend on or off
+}
+
+#Customize the text tables for consistency using HTML formatting
+my_kable_styling <- function(dat, caption) {
+  kable(dat, "html", escape = FALSE, caption = caption) %>%
+  kable_styling(bootstrap_options = c("striped", "bordered"),
+                full_width = FALSE)
+}
+
+```
+
+
+```{r}
+#first sentiment analysis to figure out nrc (the function that sort words based on different sentiment)
+
+new_sentiments <- sentiments %>% #From the tidytext package
+  filter(lexicon != "loughran") %>% #Remove the finance lexicon
+  mutate( sentiment = ifelse(lexicon == "AFINN" & score >= 0, "positive",
+                              ifelse(lexicon == "AFINN" & score < 0,
+                                     "negative", sentiment))) %>%
+  group_by(lexicon) %>%
+  mutate(words_in_lexicon = n_distinct(word)) %>%
+  ungroup()
+
+new_sentiments %>%
+  group_by(lexicon, sentiment, words_in_lexicon) %>%
+  summarise(distinct_words = n_distinct(word)) %>%
+  ungroup() %>%
+  spread(sentiment, distinct_words) %>%
+  mutate(lexicon = color_tile("lightblue", "lightblue")(lexicon),
+         words_in_lexicon = color_bar("lightpink")(words_in_lexicon)) %>%
+  my_kable_styling(caption = "Word Counts Per Lexicon")
+
+```
+
+
+```{r}
+# determine which lexicon is more applicable to the sentiment analysis
+# check how many of those words are actually in the lexicons
+
+Y1Y4Clean %>%
+  mutate(words_in_Y1Y4Clean = n_distinct(word)) %>%
+  inner_join(new_sentiments) %>%
+  group_by(lexicon, words_in_Y1Y4Clean, words_in_lexicon) %>%
+  summarise(lex_match_words = n_distinct(word)) %>%
+  ungroup() %>%
+  mutate(total_match_words = sum(lex_match_words), #Not used but good to have
+         match_ratio = lex_match_words / words_in_Y1Y4Clean) %>%
+  select(lexicon, lex_match_words,  words_in_Y1Y4Clean, match_ratio) %>%
+  mutate(lex_match_words = color_bar("lightpink")(lex_match_words),
+         lexicon = color_tile("lightgreen", "lightgreen")(lexicon)) %>%
+  my_kable_styling(caption = "Y1Y4Clean Sentiment Found In Lexicons")
+
+```
+
+```{r}
+#sample specific words sentiment analysis to show one word can represent different sentiments
+
+new_sentiments %>%
+  filter(word %in% c("patient", "patients", "treatment",
+                     "plan", "expectation" , "feel" , "understand")) %>%
+  arrange(word) %>% #sort
+
+  mutate(word = color_tile("lightblue", "lightblue")(word),
+         words_in_lexicon = color_bar("lightpink")(words_in_lexicon),
+         lexicon = color_tile("lightgreen", "lightgreen")(lexicon)) %>%
+  my_kable_styling(caption = "Specific Words")
+
+```
+
+```{r}
+#create sentiment dataset
+
+Y1Y4_bing <- Y1Y4Clean %>%
+  inner_join(get_sentiments("bing"))
+
+Y1Y4_nrc <- Y1Y4Clean %>%
+  inner_join(get_sentiments("nrc"))
+
+Y1Y4_nrc_sub <- Y1Y4Clean %>%
+  inner_join(get_sentiments("nrc")) %>%
+  filter(!sentiment %in% c("positive", "negative"))
+
+```
+
+```{r}
+#in the mood: overall sentiment
+
+nrc_plot <- Y1Y4_nrc %>%
+  group_by(sentiment) %>%
+  summarise(word_count = n()) %>%
+  ungroup() %>%
+  mutate(sentiment = reorder(sentiment, word_count)) %>%
+  #Use `fill = -word_count` to make the larger bars darker
+  ggplot(aes(sentiment, word_count, fill = word_count)) +
+  geom_col() +
+  guides(fill = FALSE) +
+  theme_Y1Y4Clean()+
+  labs(x = NULL, y = "Word_Count") +
+  scale_y_continuous(limits = c(0, 5000)) +
+  ggtitle("Y1Y4 NRC Sentiment") +
+  coord_flip()
+
+img <- "darkbackground.jpg" #Load the background image
+lab <- ""  #Turn off the label
+#Overlay the plot on the image and create the meme file
+meme(img, lab, "meme_nrc.jpg", inset = nrc_plot)
+#Read the file back in and display it!
+nrc_meme <- image_read("meme_nrc.jpg")
+plot(nrc_meme)
+
+
+```
+
+```{r}
+#overall positive and negative
+
+bing_plot <- Y1Y4_bing %>%
+  group_by(sentiment) %>%
+  summarise(word_count = n()) %>%
+  ungroup() %>%
+  mutate(sentiment = reorder(sentiment, word_count)) %>%
+  ggplot(aes(sentiment, word_count, fill = sentiment)) +
+  geom_col() +
+  guides(fill = FALSE) +
+  theme_Y1Y4Clean() +
+  labs(x = NULL, y = "Word Count") +
+  scale_y_continuous(limits = c(0, 2000)) +
+  ggtitle("Y1Y4 Bing Sentiment") +
+  coord_flip()
+
+img1 <- "darkbackground.jpg"
+lab1 <- ""
+meme(img1, lab1, "meme_bing.jpg", inset = bing_plot)
+x <- image_read("meme_bing.jpg")
+plot(x)
+
+```
+
+```{r}
+#Polarity changes and positive percentage changes over time
+
+Y1Y4_polarity_year <- Y1Y4_bing %>%
+  count(sentiment, RefYear) %>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(polarity = positive - negative,
+    percent_positive = positive / (positive + negative) * 100)
+
+Y1Y4_polarity_over_time <- Y1Y4_polarity_year %>%
+  ggplot(aes(RefYear, polarity, color = ifelse(polarity >= 0,my_colors[5],my_colors[4]))) +
+  geom_col() +
+  geom_smooth(method = "loess", se = FALSE) +
+  geom_smooth(method = "lm", se = FALSE, aes(color = my_colors[1])) +
+  theme_Y1Y4Clean() + theme(plot.title = element_text(size = 11)) +
+  xlab(NULL) + ylab(NULL) +
+  ggtitle("Polarity Over Time")
+
+Y1Y4_relative_polarity_over_time <- Y1Y4_polarity_year %>%
+  ggplot(aes(RefYear, percent_positive , color = ifelse(polarity >= 0,my_colors[5],my_colors[4]))) +
+  geom_col() +
+  geom_smooth(method = "loess", se = FALSE) +
+  geom_smooth(method = "lm", se = FALSE, aes(color = my_colors[1])) +
+  theme_Y1Y4Clean() + theme(plot.title = element_text(size = 11)) +
+  xlab(NULL) + ylab(NULL) +
+  ggtitle("Percent Positive Over Time")
+
+grid.arrange(Y1Y4_polarity_over_time, Y1Y4_relative_polarity_over_time, ncol = 2)
+
+```
+
+```{r}
+#relationship between mood and year
+
+grid.col = c("D1" = my_colors[1], "D4" = my_colors[2], "anger" = "grey", "anticipation" = "grey", "disgust" = "grey", "fear" = "grey", "joy" = "grey", "sadness" = "grey", "surprise" = "grey", "trust" = "grey")
+
+Y1Y4_mood <-  Y1Y4_nrc %>%
+  filter(RefYear != "NA" & !sentiment %in% c("positive", "negative")) %>%
+  count(sentiment, RefYear) %>%
+  group_by(RefYear, sentiment) %>%
+  summarise(sentiment_sum = sum(n)) %>%
+  ungroup()
+
+circos.clear()
+#Set the gap size
+circos.par(gap.after = c(rep(5, length(unique(Y1Y4_mood[[1]])) - 1), 15,
+                         rep(5, length(unique(Y1Y4_mood[[2]])) - 1), 15))
+chordDiagram(Y1Y4_mood, grid.col = grid.col, transparency = .2)
+title("Relationship Between Mood and Decade")
+
+
+
+```
+
+```{r}
+#Y1Y4 NRC Sentiment, top 10 words in each sentiments
+
+plot_words_D1_D4 <- Y1Y4_nrc %>%
+  filter(RefYear %in% c("D1", "D4")) %>%
+  group_by(sentiment) %>%
+  count(word, sort = TRUE) %>%
+  arrange(desc(n)) %>%
+  slice(seq_len(8)) %>% #consider top_n() from dplyr also
+  ungroup()
+
+plot_words_D1_D4 %>%
+  #Set `y = 1` to just plot one variable and use word as the label
+  ggplot(aes(word, 1, label = word, fill = sentiment )) +
+  #You want the words, not the points
+  geom_point(color = "transparent") +
+  #Make sure the labels don't overlap
+  geom_label_repel(force = 1,nudge_y = .5,  
+                   direction = "y",
+                   box.padding = 0.04,
+                   segment.color = "transparent",
+                   size = 3) +
+  facet_grid(~sentiment) +
+  theme_Y1Y4Clean() +
+  theme(axis.text.y = element_blank(), axis.text.x = element_blank(),
+        axis.title.x = element_text(size = 6),
+        panel.grid = element_blank(), panel.background = element_blank(),
+        panel.border = element_rect("lightgray", fill = NA),
+        strip.text.x = element_text(size = 9)) +
+  xlab(NULL) + ylab(NULL) +
+  ggtitle("Y1Y4 NRC Sentiment") +
+  coord_flip()
+
+```
+
+```{r}
+#Y1 NRC Sentiment, top 10 words in different sentiments
+
+plot_words_Y1 <- Y1Y4_nrc %>%
+  filter(RefYear == "D1") %>%
+  group_by(sentiment) %>%
+  count(word, sort = TRUE) %>%
+  arrange(desc(n)) %>%
+  slice(seq_len(10)) %>%
+  ungroup()
+
+#Same comments as previous graph
+plot_words_Y1 %>%
+  ggplot(aes(word, 1, label = word, fill = sentiment )) +
+  geom_point(color = "transparent") +
+  geom_label_repel(force = 1,nudge_y = .5,  
+                   direction = "y",
+                   box.padding = 0.05,
+                   segment.color = "transparent",
+                   size = 3) +
+  facet_grid(~sentiment) +
+  theme_Y1Y4Clean() +
+  theme(axis.text.y = element_blank(), axis.text.x = element_blank(),
+        axis.title.x = element_text(size = 6),
+        panel.grid = element_blank(), panel.background = element_blank(),
+        panel.border = element_rect("lightgray", fill = NA),
+        strip.text.x = element_text(size = 9)) +
+  xlab(NULL) + ylab(NULL) +
+  ggtitle("Y1 NRC Sentiment") +
+  coord_flip()
+
+
+```
+
+```{r}
+#Y4 NRC Sentiment, top 10 words in different sentiments
+
+plot_words_Y4 <- Y1Y4_nrc %>%
+  filter(RefYear == "D4") %>%
+  group_by(sentiment) %>%
+  count(word, sort = TRUE) %>%
+  arrange(desc(n)) %>%
+  slice(seq_len(10)) %>%
+  ungroup()
+
+#Same comments as previous graph
+plot_words_Y4 %>%
+  ggplot(aes(word, 1, label = word, fill = sentiment )) +
+  geom_point(color = "transparent") +
+  geom_label_repel(force = 1,nudge_y = .5,  
+                   direction = "y",
+                   box.padding = 0.05,
+                   segment.color = "transparent",
+                   size = 3) +
+  facet_grid(~sentiment) +
+  theme_Y1Y4Clean() +
+  theme(axis.text.y = element_blank(), axis.text.x = element_blank(),
+        axis.title.x = element_text(size = 6),
+        panel.grid = element_blank(), panel.background = element_blank(),
+        panel.border = element_rect("lightgray", fill = NA),
+        strip.text.x = element_text(size = 9)) +
+  xlab(NULL) + ylab(NULL) +
+  ggtitle("Y4 NRC Sentiment") +
+  coord_flip()
+
+
+```
+
+```{r}
+#Get the count of words per sentiment per year
+
+year_sentiment_nrc <- Y1Y4_nrc_sub %>%
+  group_by(RefYear, sentiment) %>%
+  count(RefYear, sentiment) %>%
+  select(RefYear, sentiment, sentiment_RefYear_count = n)
+
+#Get the total count of sentiment words per year (not distinct)
+total_sentiment_year <- Y1Y4_nrc_sub %>%
+  count(RefYear) %>%
+  select(RefYear, RefYear_total = n)
+
+#Join the two and create a percent field
+year_radar_chart <- year_sentiment_nrc %>%
+  inner_join(total_sentiment_year, by = "RefYear") %>%
+  mutate(percent = sentiment_RefYear_count / RefYear_total * 100 ) %>%
+  filter(RefYear %in% c("D1","D4")) %>%
+  select(-sentiment_RefYear_count, -RefYear_total) %>%
+  spread(RefYear, percent) %>%
+  chartJSRadar(showToolTipLabel = TRUE,
+               main = "NRC Years Radar")
+
+```
+
+
+```{r}
+#Doneeeeeeeeeeeeeee!
+#Great job guys!
+
+
+
+
+
+
+
+
+
+
+
+
+
 
