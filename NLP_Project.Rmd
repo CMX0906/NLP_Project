@@ -7,8 +7,90 @@ output: html_document
 
 ## Project Overview
 
+###Context
+The data set we chose to analyze is students’ online reflections on the e-Portfolio system at the NYU College of Dentistry (NYUCD). The system was designed for NYU dentistry students to do a self-assessment of their academic and professional knowledge and skills year by year. Each year students were required to write an online reflection assignment including survey and self-reflection. The e-portfolio for each student includes statements (personal, private personal, self-reflection on becoming a professional, private self-reflection on becoming a professional, ethic reflection, professional progress), course reflections, competency reflections, MDR/competency exams attempts, file uploads, and knowledge inventory questionnaires.
 
-## Text Tidying
+To be specific, knowledge-inventory-questionnaires (KIQ) tab has two questions to answer about the 48 core competencies that NYUCD emphasized. 
+  • Rating data; they rated how much they thought they had each competency with 6-Likert scale (6 is the most likely).
+  • Text data; they wrote their resolution or plan for each competency question
+  
+   I feel I will enhance or maintain this skill in the following activity or program
+  
+For instance, there are 2017 graduating students who submitted their answers to KIQ tab on the e-Portfolio system from 2013/2014 (Y1) to 2016/2017 (Y4). If one student answers all the questions without any missing response in Y1, there would be 96 data which consists of 48 rating data and 48 text data. If she/he answered all gain in Y4, there would be another 96 data, which can be accumulated and matched with the Y1 data set. 
+
+###Data
+Finally, we chose our data set as ### dental students who graduated 2017 and submitted their reflections on knowledge-inventory-questionnaires (KIQ) tab on the e-Portfolio systems for both Y1 and Y4.
+
+Specific decisions about the data we make are as follows:
+  (a) *Text data* on KIQ on the system
+      This data indicates each student's resolution and plan to maintain or cultivate competency based on their                reflection, which would include their sentiments embedded in the words. 
+  
+  (b) *Two questions* among 48 competency questions on KIQ
+      At first, there were the total 48 competency questions that each student answered in KIQ, which made a lot of            students just copy and paste their answers from the first question to the final questions. In addition, there are        some questions who seem overlapped and similar with the other questions in terms of the contents (e.g. Q34. I feel       competent in my ability to manage partial edentulism, Q35. I feel competent in my ability to manage complete             edentulism.). Thus, we decided to focus on the two important questions which indicate core competencies that dental       students should develop and may include more sentimental words: 
+       • *[understanding patient]* Q3. I feel competent in my ability to understand patient expectations and achieve               their needs.
+       • *[application for treatment]* Q22. I feel competent in my ability to apply the relevant and valid evidence to             the procedure you are/or plan to perform and develop an appropriate treatment plan.
+
+  (c) Reflections made by *both Y1 and Y4*
+      As well as to look at each year's data set individually, we decided to figure out the change of the sentiment words       between Y1 and Y4 that students showed. We expected that identifying the changes of the sentiment words between          their first year and their graduation year would be helpful to figure out which aspects, concepts, activities are        related to their sentiment.
+ 
+###Questions
+What kinds of words are embedded in students' resolution to develop their competency?
+What kinds of sentimental words are invovled in students' resolution to develop their competency?
+How does sentimental words change from the first year to their graduate year?
+
+
+###Procedues
+Overall procedures we conducted are as follows:
+
+1. Walk through the data set
+  (a) Get the data.
+  (b) Look at the data set closely to get a sense of what the data can tell about learning.
+  (c) Decide to focus on “content” (language) ---> “NLP”
+
+2. Make key decisions
+  (a) Clarify the research questions 
+  (b) Decide to conduct “sentimental analysis with n/gram” as well as basic content analysis including word frequency          among diverse NLP techniques
+  (c) Finally select the data set for analysis to answer the questions.
+  (d) Select the R package to conduct data analysis
+
+3. Do pilot test with Y4 data set
+  (a) Data Cleaning & Tidying
+        • Data scraping for Y1 data using Web Scraper (Avi's help!)
+        • Data cleaning for Y4 data set using Excel
+        • Data cleaning & tidying
+  (b)  Basic content analysis & interpretation
+        • Word frequency & scatter plot
+  (c)  Sentiment analysis & interpretation
+        • Positive/negative sentiment analysis; finding specific sentiment words associated most with competency
+        • SNA sentiment analysis; finding more specific sentiment words and their relationships per sentiment
+
+4. Conduct analysis for both Y1 and Y4 data set
+  (a) Data Cleaning & Tidying
+        • Data scraping for Y1 data using Web Scraper
+        • Data matching & cleaning for both Y1 and Y4 data set using Excel
+        • Data cleaning & tidying
+  (b) Basic analysis
+        •	All word frequency
+        •	Positive/Negative word frequency
+        •	SNA (Overall or Pos/Neg)
+  (c) Sentiment analysis
+        • [Q1] Compare Year1 vs Year4
+              • All Word Frequency per sentiment 
+              •	Bi-gram Word Frequency per sentiment 
+              •	All SNA per sentiment
+              •	Bi-gram SNA per sentiment
+        • [Q2] Compare Year1 vs Year4
+              • All Word Frequency per sentiment 
+              •	Bi-gram Word Frequency per sentiment 
+              •	All SNA per sentiment
+              •	Bi-gram SNA per sentiment
+
+5. Integrate and examine the results all together
+
+6. Suggest conclusions and implications
+
+
+## Data Cleaning & Tidying
 
 ```{r}
 #install tidytext package for tidying
@@ -44,8 +126,8 @@ dentalDataAll <- read_excel("DentalDataKIQ2017D1&D4P(anonymized).xlsx", sheet = 
 
 ```{r}
 #filter out questions other than Q3 and Q22 for both years
-#I found out that there are missing students in Year 1
-#I combined data frames for both years by column and added a flag column for compairson
+##found out that there are missing students in Y1
+##combined data frames for both years by column and added a flag column for compairson
 
 dentalDataD1 <- filter(dentalDataAll, RefYear == "D1" & (kiqQs == "cp3" | kiqQs == "cp22"))
 colnames(dentalDataD1)[colnames(dentalDataD1)=="RandomID"] <- "RandomIDY1"
@@ -68,12 +150,11 @@ for(i in c(1:734)) {
   }
   }
 }
-
 ```
 
 ```{r}
 #filter out the students that are not presented in Year 1
-#now both years have the same observations 
+##now both years have the same observations 
 
 dentalDataD4 <- cbind(dentalDataD4,flag=dentalDataD1D4$flag)
 
@@ -133,12 +214,11 @@ Y4Q2 <- filter(Y1Y4Clean, RefYear == "D4" & kiqQs == "cp22")
 ```
 
 
-
-
+##Basic analysis
 ```{r}
-#general word count including both years and both questions
-#filter out the words that appear less than 100 times
-#sorted by amount
+#overall word count including both years and both questions
+##filter out the words that appear less than 100 times
+##sorted by amount
 count
 Y1Y4Clean %>%
   count(word, sort = TRUE) %>%
@@ -197,7 +277,7 @@ bigrams_filtered <- bigrams_separated %>%
   filter(!word1 %in% stop_words$word) %>%
   filter(!word2 %in% stop_words$word)
 
-# new bigram counts:
+#new bigram counts:
 bigram_counts <- bigrams_filtered %>% 
   count(word1, word2, sort = TRUE)
 
@@ -257,7 +337,6 @@ install.packages("circlize") #Visualizations - chord diagram
 install.packages("memery") #Memes - images with plots
 install.packages("magick") #Memes - images with plots (image_read)
 install.packages("yarrr")  #Pirate plot
-
 ```
 
 ```{r}
@@ -292,7 +371,7 @@ theme_Y1Y4Clean <- function(aticks = element_blank(),
 {
   theme(plot.title = element_text(hjust = 0.5), #Center the title
         axis.ticks = aticks, #Set axis ticks to on or off
-        panel.grid.minor = pgminor, #Turn the minor grid lines on or off
+        panel.grid.minor = pgminor, #Turn the minor grid lines on or off$
         legend.title = lt, #Turn the legend title on or off
         legend.position = lp) #Turn the legend on or off
 }
@@ -306,6 +385,7 @@ my_kable_styling <- function(dat, caption) {
 
 ```
 
+##Sentiment Analysis
 
 ```{r}
 #first sentiment analysis to figure out nrc (the function that sort words based on different sentiment)
@@ -397,6 +477,7 @@ nrc_plot <- Y1Y4_nrc %>%
   scale_y_continuous(limits = c(0, 5000)) +
   ggtitle("Y1Y4 NRC Sentiment") +
   coord_flip()
+
 
 img <- "darkbackground.jpg" #Load the background image
 lab <- ""  #Turn off the label
@@ -604,6 +685,8 @@ total_sentiment_year <- Y1Y4_nrc_sub %>%
   count(RefYear) %>%
   select(RefYear, RefYear_total = n)
 
+install.packages("chartJSRadar")
+library(chartJSRadar)
 #Join the two and create a percent field
 year_radar_chart <- year_sentiment_nrc %>%
   inner_join(total_sentiment_year, by = "RefYear") %>%
@@ -614,6 +697,473 @@ year_radar_chart <- year_sentiment_nrc %>%
   chartJSRadar(showToolTipLabel = TRUE,
                main = "NRC Years Radar")
 
+```
+##[Q1]Bigram
+###Y1Q1-bigram
+```{r}
+#[Y1Q1] 
+#bigram count
+Y1Q1_bigrams <- Y1Q1 %>%
+  unnest_tokens(bigram, word, token = "ngrams", n = 2)
+
+Y1Q1_bigrams %>%
+count(bigram, sort = TRUE)
+
+#overall bigram count that filtered out stop words
+bigrams_separated_Y1Q1 <- Y1Q1_bigrams %>%
+  separate(bigram, c("word1", "word2"), sep = " ")
+
+bigrams_filtered_Y1Q1 <- bigrams_separated_Y1Q1 %>%
+  filter(!word1 %in% stop_words$word) %>%
+  filter(!word2 %in% stop_words$word)
+
+#new bigram counts:
+bigram_counts_Y1Q1 <- bigrams_filtered_Y1Q1 %>% 
+  count(word1, word2, sort = TRUE)
+
+bigram_counts_Y1Q1 <- filter(bigram_counts_Y1Q1, !is.na(word1))
+
+
+bigram_counts_Y1Q1
+
+bigrams_united_Y1Q1 <- bigrams_filtered_Y1Q1 %>%
+  unite(bigram, word1, word2, sep = " ")
+
+bigrams_united_Y1Q1
+
+bigram_graph_Y1Q1 <- bigram_counts_Y1Q1 %>%
+  filter(n > 10) %>%
+  graph_from_data_frame()
+
+bigram_graph_Y1Q1
+
+#overall bigram visualization
+set.seed(2017)
+
+ggraph(bigram_graph_Y1Q1, layout = "fr") +
+  geom_edge_link() +
+  geom_node_point() +
+geom_node_text(aes(label = name), vjust = 1, hjust = 1)
+
+#overall bigram visualization with directions
+set.seed(2016)
+
+a <- grid::arrow(type = "closed", length = unit(.15, "inches"))
+
+ggraph(bigram_graph_Y1Q1, layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n), show.legend = FALSE,
+                 arrow = a, end_cap = circle(.07, 'inches')) +
+  geom_node_point(color = "lightblue", size = 5) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+  theme_void()
+
+
+
+```
+
+###Y4Q1-bigram
+```{r}
+#overall bigram count
+Y4Q1_bigrams <- Y4Q1 %>%
+  unnest_tokens(bigram, word, token = "ngrams", n = 2)
+
+Y4Q1_bigrams %>%
+count(bigram, sort = TRUE)
+
+#overall bigram count that filtered out stop words
+bigrams_separated_Y4Q1 <- Y4Q1_bigrams %>%
+  separate(bigram, c("word1", "word2"), sep = " ")
+
+bigrams_filtered_Y4Q1 <- bigrams_separated_Y4Q1 %>%
+  filter(!word1 %in% stop_words$word) %>%
+  filter(!word2 %in% stop_words$word)
+
+#new bigram counts:
+bigram_counts_Y4Q1 <- bigrams_filtered_Y4Q1 %>% 
+  count(word1, word2, sort = TRUE)
+
+bigram_counts_Y1Q1 <- filter(bigram_counts_Y4Q1, !is.na(word1))
+
+
+bigram_counts_Y4Q1
+
+bigrams_united_Y4Q1 <- bigrams_filtered_Y4Q1 %>%
+  unite(bigram, word1, word2, sep = " ")
+
+bigrams_united_Y4Q1
+
+bigram_graph_Y4Q1 <- bigram_counts_Y4Q1 %>%
+  filter(n > 10) %>%
+  graph_from_data_frame()
+
+bigram_graph_Y4Q1
+
+#overall bigram visualization
+set.seed(2017)
+
+ggraph(bigram_graph_Y4Q1, layout = "fr") +
+  geom_edge_link() +
+  geom_node_point() +
+geom_node_text(aes(label = name), vjust = 1, hjust = 1)
+
+#overall bigram visualization with directions
+set.seed(2016)
+
+a <- grid::arrow(type = "closed", length = unit(.15, "inches"))
+
+ggraph(bigram_graph_Y4Q1, layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n), show.legend = FALSE,
+                 arrow = a, end_cap = circle(.07, 'inches')) +
+  geom_node_point(color = "lightblue", size = 5) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+  theme_void()
+
+
+```
+
+##[Q2]Bigram
+###Y1Q2-bigram
+```{r}
+#[Y1Q2] 
+#bigram count
+Y1Q2_bigrams <- Y1Q2 %>%
+  unnest_tokens(bigram, word, token = "ngrams", n = 2)
+
+Y1Q2_bigrams %>%
+count(bigram, sort = TRUE)
+
+#overall bigram count that filtered out stop words
+bigrams_separated_Y1Q2 <- Y1Q2_bigrams %>%
+  separate(bigram, c("word1", "word2"), sep = " ")
+
+bigrams_filtered_Y1Q2 <- bigrams_separated_Y1Q2 %>%
+  filter(!word1 %in% stop_words$word) %>%
+  filter(!word2 %in% stop_words$word)
+
+#new bigram counts:
+bigram_counts_Y1Q2 <- bigrams_filtered_Y1Q2 %>% 
+  count(word1, word2, sort = TRUE)
+
+bigram_counts_Y1Q2 <- filter(bigram_counts_Y1Q2, !is.na(word1))
+
+
+bigram_counts_Y1Q2
+
+bigrams_united_Y1Q2 <- bigrams_filtered_Y1Q2 %>%
+  unite(bigram, word1, word2, sep = " ")
+
+bigrams_united_Y1Q2
+
+bigram_graph_Y1Q2 <- bigram_counts_Y1Q2 %>%
+  filter(n > 10) %>%
+  graph_from_data_frame()
+
+bigram_graph_Y1Q2
+
+#overall bigram visualization
+set.seed(2017)
+
+ggraph(bigram_graph_Y1Q2, layout = "fr") +
+  geom_edge_link() +
+  geom_node_point() +
+geom_node_text(aes(label = name), vjust = 1, hjust = 1)
+
+#overall bigram visualization with directions
+set.seed(2016)
+
+a <- grid::arrow(type = "closed", length = unit(.15, "inches"))
+
+ggraph(bigram_graph_Y1Q2, layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n), show.legend = FALSE,
+                 arrow = a, end_cap = circle(.07, 'inches')) +
+  geom_node_point(color = "lightblue", size = 5) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+  theme_void()
+
+```
+
+###Y4Q2-bigram
+```{r}
+#[Y4Q2] 
+#bigram count
+Y4Q2_bigrams <- Y4Q2 %>%
+  unnest_tokens(bigram, word, token = "ngrams", n = 2)
+
+Y4Q2_bigrams %>%
+count(bigram, sort = TRUE)
+
+#overall bigram count that filtered out stop words
+bigrams_separated_Y4Q2 <- Y4Q2_bigrams %>%
+  separate(bigram, c("word1", "word2"), sep = " ")
+
+bigrams_filtered_Y4Q2 <- bigrams_separated_Y4Q2 %>%
+  filter(!word1 %in% stop_words$word) %>%
+  filter(!word2 %in% stop_words$word)
+
+#new bigram counts:
+bigram_counts_Y4Q2 <- bigrams_filtered_Y4Q2 %>% 
+  count(word1, word2, sort = TRUE)
+
+bigram_counts_Y4Q2 <- filter(bigram_counts_Y4Q2, !is.na(word1))
+
+
+bigram_counts_Y4Q2
+
+bigrams_united_Y4Q2 <- bigrams_filtered_Y4Q2 %>%
+  unite(bigram, word1, word2, sep = " ")
+
+bigrams_united_Y4Q2
+
+bigram_graph_Y4Q2 <- bigram_counts_Y4Q2 %>%
+  filter(n > 10) %>%
+  graph_from_data_frame()
+
+bigram_graph_Y4Q2
+
+#overall bigram visualization
+set.seed(2017)
+
+ggraph(bigram_graph_Y4Q2, layout = "fr") +
+  geom_edge_link() +
+  geom_node_point() +
+geom_node_text(aes(label = name), vjust = 1, hjust = 1)
+
+#overall bigram visualization with directions
+set.seed(2016)
+
+a <- grid::arrow(type = "closed", length = unit(.15, "inches"))
+
+ggraph(bigram_graph_Y4Q2, layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n), show.legend = FALSE,
+                 arrow = a, end_cap = circle(.07, 'inches')) +
+  geom_node_point(color = "lightblue", size = 5) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+  theme_void()
+
+```
+
+##[Q1]SentimentTop20
+```{r}
+#Q1--Y1 NRC Sentiment, top 20 words in different sentiments
+
+plot_words_Y1Q1 <- Y1Y4_nrc %>%
+  filter(RefYear == "D1") %>%
+  filter(kiqQs == "cp3") %>%
+  group_by(sentiment) %>%
+  count(word, sort = TRUE) %>%
+  arrange(desc(n)) %>%
+  slice(seq_len(20)) %>%
+  ungroup()
+
+#Same comments as previous graph
+plot_words_Y1Q1 %>%
+  ggplot(aes(word, 1, label = word, fill = sentiment )) +
+  geom_point(color = "transparent") +
+  geom_label_repel(force = 1,nudge_y = .5,  
+                   direction = "y",
+                   box.padding = 0.05,
+                   segment.color = "transparent",
+                   size = 3) +
+  facet_grid(~sentiment) +
+  theme_Y1Y4Clean() +
+  theme(axis.text.y = element_blank(), axis.text.x = element_blank(),
+        axis.title.x = element_text(size = 4),
+        panel.grid = element_blank(), panel.background = element_blank(),
+        panel.border = element_rect("lightgray", fill = NA),
+        strip.text.x = element_text(size = 7)) +
+  xlab(NULL) + ylab(NULL) +
+  ggtitle("Y1Q1 NRC Sentiment") +
+  coord_flip()
+
+#Q1--Y4 NRC Sentiment, top 20 words in different sentiments
+
+plot_words_Y4Q1 <- Y1Y4_nrc %>%
+  filter(RefYear == "D4") %>%
+  filter(kiqQs == "cp3") %>%
+  group_by(sentiment) %>%
+  count(word, sort = TRUE) %>%
+  arrange(desc(n)) %>%
+  slice(seq_len(20)) %>%
+  ungroup()
+
+#Same comments as previous graph
+plot_words_Y4Q1 %>%
+  ggplot(aes(word, 1, label = word, fill = sentiment )) +
+  geom_point(color = "transparent") +
+  geom_label_repel(force = 1,nudge_y = .5,  
+                   direction = "y",
+                   box.padding = 0.05,
+                   segment.color = "transparent",
+                   size = 3) +
+  facet_grid(~sentiment) +
+  theme_Y1Y4Clean() +
+  theme(axis.text.y = element_blank(), axis.text.x = element_blank(),
+        axis.title.x = element_text(size = 4),
+        panel.grid = element_blank(), panel.background = element_blank(),
+        panel.border = element_rect("lightgray", fill = NA),
+        strip.text.x = element_text(size = 7)) +
+  xlab(NULL) + ylab(NULL) +
+  ggtitle("Y4Q1 NRC Sentiment") +
+  coord_flip()
+```
+
+##[Q2]SentimentTop20
+```{r}
+#Q2--Y1 NRC Sentiment, top 20 words in different sentiments
+
+plot_words_Y1Q2 <- Y1Y4_nrc %>%
+  filter(RefYear == "D1") %>%
+  filter(kiqQs == "cp22") %>%
+  group_by(sentiment) %>%
+  count(word, sort = TRUE) %>%
+  arrange(desc(n)) %>%
+  slice(seq_len(20)) %>%
+  ungroup()
+
+#Same comments as previous graph
+plot_words_Y1Q2 %>%
+  ggplot(aes(word, 1, label = word, fill = sentiment )) +
+  geom_point(color = "transparent") +
+  geom_label_repel(force = 1,nudge_y = .5,  
+                   direction = "y",
+                   box.padding = 0.05,
+                   segment.color = "transparent",
+                   size = 3) +
+  facet_grid(~sentiment) +
+  theme_Y1Y4Clean() +
+  theme(axis.text.y = element_blank(), axis.text.x = element_blank(),
+        axis.title.x = element_text(size = 4),
+        panel.grid = element_blank(), panel.background = element_blank(),
+        panel.border = element_rect("lightgray", fill = NA),
+        strip.text.x = element_text(size = 7)) +
+  xlab(NULL) + ylab(NULL) +
+  ggtitle("Y1Q2 NRC Sentiment") +
+  coord_flip()
+
+#Q2--Y4 NRC Sentiment, top 20 words in different sentiments
+
+plot_words_Y4Q2 <- Y1Y4_nrc %>%
+  filter(RefYear == "D4") %>%
+  filter(kiqQs == "cp22") %>%
+  group_by(sentiment) %>%
+  count(word, sort = TRUE) %>%
+  arrange(desc(n)) %>%
+  slice(seq_len(20)) %>%
+  ungroup()
+
+#Same comments as previous graph
+plot_words_Y4Q2 %>%
+  ggplot(aes(word, 1, label = word, fill = sentiment )) +
+  geom_point(color = "transparent") +
+  geom_label_repel(force = 1,nudge_y = .5,  
+                   direction = "y",
+                   box.padding = 0.05,
+                   segment.color = "transparent",
+                   size = 3) +
+  facet_grid(~sentiment) +
+  theme_Y1Y4Clean() +
+  theme(axis.text.y = element_blank(), axis.text.x = element_blank(),
+        axis.title.x = element_text(size = 4),
+        panel.grid = element_blank(), panel.background = element_blank(),
+        panel.border = element_rect("lightgray", fill = NA),
+        strip.text.x = element_text(size = 7)) +
+  xlab(NULL) + ylab(NULL) +
+  ggtitle("Y4Q2 NRC Sentiment") +
+  coord_flip()
+```
+
+##[Q1]WeightedSentimentRelationships
+```{r}
+library(ggplot2)
+library(igraph)
+library(ggraph)
+
+##Q1--Y1
+set.seed(1234)
+
+plot_words_Y1Q1 <- Y1Y4_nrc %>%
+  filter(RefYear == "D1") %>%
+  filter(kiqQs == "cp3") %>%
+  group_by(sentiment) %>%
+  count(word, sort = TRUE) %>%
+  arrange(desc(n)) %>%
+  slice(seq_len(20)) %>%
+  ungroup()
+
+plot_words_Y1Q1 %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n, edge_width = n), edge_colour = "cyan4") +
+  geom_node_point(size = 1) +
+  geom_node_text(aes(label = name), repel = TRUE, 
+                 point.padding = unit(0.2, "lines")) +
+  theme_void()
+
+##Q1--Y4
+set.seed(1234)
+
+plot_words_Y4Q1 <- Y1Y4_nrc %>%
+  filter(RefYear == "D4") %>%
+  filter(kiqQs == "cp3") %>%
+  group_by(sentiment) %>%
+  count(word, sort = TRUE) %>%
+  arrange(desc(n)) %>%
+  slice(seq_len(20)) %>%
+  ungroup()
+
+plot_words_Y4Q1 %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n, edge_width = n), edge_colour = "cyan4") +
+  geom_node_point(size = 1) +
+  geom_node_text(aes(label = name), repel = TRUE, 
+                 point.padding = unit(0.2, "lines")) +
+  theme_void()
+```
+
+##[Q2]WeightedSentimentRelationships
+```{r}
+##Q2--Y1
+set.seed(1234)
+
+plot_words_Y1Q2 <- Y1Y4_nrc %>%
+  filter(RefYear == "D1") %>%
+  filter(kiqQs == "cp22") %>%
+  group_by(sentiment) %>%
+  count(word, sort = TRUE) %>%
+  arrange(desc(n)) %>%
+  slice(seq_len(20)) %>%
+  ungroup()
+
+plot_words_Y1Q2 %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n, edge_width = n), edge_colour = "cyan4") +
+  geom_node_point(size = 1) +
+  geom_node_text(aes(label = name), repel = TRUE, 
+                 point.padding = unit(0.2, "lines")) +
+  theme_void()
+
+##Q2--Y4
+set.seed(1234)
+
+plot_words_Y4Q2 <- Y1Y4_nrc %>%
+  filter(RefYear == "D4") %>%
+  filter(kiqQs == "cp22") %>%
+  group_by(sentiment) %>%
+  count(word, sort = TRUE) %>%
+  arrange(desc(n)) %>%
+  slice(seq_len(20)) %>%
+  ungroup()
+
+plot_words_Y4Q2 %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n, edge_width = n), edge_colour = "cyan4") +
+  geom_node_point(size = 1) +
+  geom_node_text(aes(label = name), repel = TRUE, 
+                 point.padding = unit(0.2, "lines")) +
+  theme_void()
 ```
 
 
